@@ -7,7 +7,10 @@
     "start": "node scripts/menu.js",
     "docs": "node scripts/menu.js",
     "menu": "node scripts/menu.js",
-    "docs:web": "node scripts/serve-docs.js"
+    "docs:web": "node scripts/serve-docs.js",
+    "compile": "npm run compile --prefix contracts",
+    "test": "npm test --prefix contracts",
+    "deploy:local": "npm run deploy:local --prefix contracts"
   },
   "keywords": [
     "blockchain",
