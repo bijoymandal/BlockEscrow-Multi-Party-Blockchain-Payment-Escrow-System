@@ -9,7 +9,9 @@
     "menu": "node scripts/menu.js",
     "docs:web": "node scripts/serve-docs.js",
     "compile": "npm run compile --prefix contracts",
-    "test": "npm test --prefix contracts",
+    "test": "npm run test:contracts && npm run test:ipfs",
+    "test:contracts": "npm test --prefix contracts",
+    "test:ipfs": "npm test --prefix packages/ipfs-service",
     "deploy:local": "npm run deploy:local --prefix contracts"
   },
   "keywords": [

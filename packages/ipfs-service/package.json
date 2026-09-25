@@ -1,0 +1,18 @@
+{
+  "name": "@blockescrow/ipfs-service",
+  "version": "1.0.0",
+  "description": "IPFS metadata, JSON schemas, Pinata client, and fast gateway resolver for BlockEscrow",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [
+    "ipfs",
+    "pinata",
+    "escrow",
+    "blockchain",
+    "web3"
+  ],
+  "author": "BlockEscrow Core Team",
+  "license": "MIT"
+}
