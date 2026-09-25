@@ -1,0 +1,23 @@
+{
+  "name": "blockescrow-workspace",
+  "version": "1.0.0",
+  "description": "BlockEscrow - Multi-Party Blockchain Payment & Escrow System",
+  "main": "scripts/menu.js",
+  "scripts": {
+    "start": "node scripts/menu.js",
+    "docs": "node scripts/menu.js",
+    "menu": "node scripts/menu.js",
+    "docs:web": "node scripts/serve-docs.js"
+  },
+  "keywords": [
+    "blockchain",
+    "escrow",
+    "smart-contracts",
+    "ethereum",
+    "polygon",
+    "arbitrum",
+    "defi"
+  ],
+  "author": "",
+  "license": "MIT"
+}
