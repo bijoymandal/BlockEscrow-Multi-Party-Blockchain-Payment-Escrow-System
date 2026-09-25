@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BlockEscrow Protocol | DApp & Admin Console</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    body {
+      background-color: #080B11;
+      color: #F1F5F9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .card { background-color: #0D131F; border: 1px solid #2D3A4F; }
+    .nested { background-color: #1A2333; }
+    .accent-glow { box-shadow: 0 0 15px rgba(56, 189, 248, 0.25); }
+    .badge-funded { background: rgba(59, 130, 246, 0.15); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-inprogress { background: rgba(99, 102, 241, 0.15); color: #818CF8; border: 1px solid rgba(99, 102, 241, 0.3); }
+    .badge-disputed { background: rgba(244, 63, 94, 0.15); color: #FB7185; border: 1px solid rgba(244, 63, 94, 0.3); }
+    .badge-completed { background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-created { background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-resolved { background: rgba(168, 85, 247, 0.15); color: #C084FC; border: 1px solid rgba(168, 85, 247, 0.3); }
+  </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen">
+  <!-- Top Navigation Header -->
+  <header class="flex flex-col md:flex-row items-center justify-between gap-4 pb-6 mb-6 border-b border-[#2D3A4F]">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-lg bg-[#38BDF8] flex items-center justify-center font-black text-[#080B11] text-xl shadow-lg">
+        BE
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl font-bold tracking-tight text-white">BlockEscrow Protocol</h1>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-[#1A2333] border border-[#2D3A4F] text-[#38BDF8] font-medium">v1.0-UUPS</span> <a href="docs.html" class="text-xs px-2.5 py-1 rounded-full bg-[#38BDF8]/20 border border-[#38BDF8]/40 text-[#38BDF8] hover:bg-[#38BDF8] hover:text-[#080B11] font-semibold transition-all">📖 Docs Viewer ➔</a>
+        </div>
+        <p class="text-xs text-[#8B9BB4]">Multi-Party Non-Custodial Smart Contract Escrow & Arbitration</p>
+      </div>
+    </div>
+
+    <!-- Web3 Persona Switcher & Controls -->
+    <div class="flex flex-wrap items-center gap-2 md:gap-3">
+      <!-- Network Switcher -->
+      <select id="networkSelect" onchange="switchNetwork(this.value)" class="text-xs px-3 py-1.5 rounded-full bg-[#1A2333] border border-[#2D3A4F] text-[#8B9BB4] focus:outline-none focus:border-[#38BDF8]">
+        <option value="137">🟣 Polygon PoS (137)</option>
+        <option value="42161">🔵 Arbitrum One (42161)</option>
+        <option value="11155111">⚪ Sepolia Testnet (11155111)</option>
+      </select>
+
+      <!-- Active Persona Switcher -->
+      <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1A2333] border border-[#2D3A4F]">
+        <span class="text-xs text-[#8B9BB4]">Role:</span>
+        <select id="personaSelect" onchange="switchPersona(this.value)" class="text-xs font-semibold bg-transparent text-[#38BDF8] focus:outline-none cursor-pointer">
+          <option value="buyer">Buyer (Alice - 0x7099...79c8)</option>
+          <option value="seller">Seller (Bob - 0x3c44...93bc)</option>
+          <option value="arbitrator">Arbitrator (Judge Dave - 0x90f7...b906)</option>
+          <option value="admin">Protocol Admin (Owner - 0xf39f...2266)</option>
+        </select>
+      </div>
+
+      <!-- SIWE Status -->
+      <div id="siweBadge" class="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>SIWE Verified</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <div class="flex border-b border-[#2D3A4F] mb-6 gap-2">
+    <button onclick="switchTab('dashboard')" id="tab-dashboard" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-[#38BDF8] text-[#38BDF8]">
+      📊 Escrows Dashboard
+    </button>
+    <button onclick="switchTab('wizard')" id="tab-wizard" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-[#8B9BB4] hover:text-white">
+      ➕ Create New Escrow
+    </button>
+    <button onclick="switchTab('admin')" id="tab-admin" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-[#8B9BB4] hover:text-white flex items-center gap-1.5">
+      <span>⚖️ Admin & Arbitration Room</span>
+      <span id="disputeCountBadge" class="px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-400 text-xs font-bold">1</span>
+    </button>
+    <button onclick="switchTab('events')" id="tab-events" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-[#8B9BB4] hover:text-white">
+      ⚡ Live Event Stream
+    </button>
+  </div>
+
+  <!-- Notification Toast Container -->
+  <div id="toast" class="hidden fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg shadow-2xl border transition-all duration-300"></div>
+
+  <!-- TAB 1: DASHBOARD VIEW -->
+  <section id="view-dashboard">
+    <!-- Protocol Metric Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="card rounded-xl p-4">
+        <div class="text-xs text-[#8B9BB4]">Total Value Locked (TVL)</div>
+        <div id="metric-tvl" class="text-2xl font-bold text-[#38BDF8] mt-1">12.50 ETH</div>
+        <div class="text-xs text-emerald-400 mt-1">+$8,500 USDC locked</div>
+      </div>
+      <div class="card rounded-xl p-4">
+        <div class="text-xs text-[#8B9BB4]">Active Escrows</div>
+        <div id="metric-active" class="text-2xl font-bold text-white mt-1">2</div>
+        <div class="text-xs text-[#8B9BB4] mt-1">1 In-Progress, 1 Disputed</div>
+      </div>
+      <div class="card rounded-xl p-4">
+        <div class="text-xs text-[#8B9BB4]">Protocol Treasury Fees Earned</div>
+        <div class="text-2xl font-bold text-emerald-400 mt-1">0.035 ETH</div>
+        <div class="text-xs text-[#8B9BB4] mt-1">Rate: 0.50% (50 bps)</div>
+      </div>
+      <div class="card rounded-xl p-4">
+        <div class="text-xs text-[#8B9BB4]">Active Disputes</div>
+        <div id="metric-disputes" class="text-2xl font-bold text-rose-400 mt-1">1</div>
+        <div class="text-xs text-rose-300 mt-1">Awaiting Arbitrator Ruling</div>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-semibold text-white">Active Agreements</h2>
+      <div class="flex items-center gap-1.5 text-xs bg-[#1A2333] p-1 rounded-lg border border-[#2D3A4F]">
+        <button onclick="setFilter('all')" id="filter-all" class="px-2.5 py-1 rounded bg-[#38BDF8] text-[#080B11] font-semibold">All</button>
+        <button onclick="setFilter('buyer')" id="filter-buyer" class="px-2.5 py-1 rounded text-[#8B9BB4]">As Buyer</button>
+        <button onclick="setFilter('seller')" id="filter-seller" class="px-2.5 py-1 rounded text-[#8B9BB4]">As Seller</button>
+        <button onclick="setFilter('arbitrator')" id="filter-arbitrator" class="px-2.5 py-1 rounded text-[#8B9BB4]">As Arbitrator</button>
+      </div>
+    </div>
+
+    <!-- Escrow Cards Grid -->
+    <div id="escrowGrid" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <!-- Injected by JavaScript -->
+    </div>
+  </section>
+
+  <!-- TAB 2: CREATE ESCROW WIZARD -->
+  <section id="view-wizard" class="hidden max-w-2xl mx-auto">
+    <div class="card rounded-2xl p-6 shadow-xl">
+      <!-- Stepper Header -->
+      <div class="flex items-center justify-between mb-6 pb-4 border-b border-[#2D3A4F]">
+        <div class="flex items-center gap-2" id="wz-step-1-ind">
+          <div class="w-7 h-7 rounded-full bg-[#38BDF8] text-[#080B11] flex items-center justify-center font-bold text-xs">1</div>
+          <span class="text-xs font-semibold text-[#38BDF8]">Parties</span>
+        </div>
+        <div class="h-0.5 flex-1 bg-[#2D3A4F] mx-2"></div>
+        <div class="flex items-center gap-2" id="wz-step-2-ind">
+          <div class="w-7 h-7 rounded-full bg-[#1A2333] text-[#8B9BB4] flex items-center justify-center font-bold text-xs">2</div>
+          <span class="text-xs text-[#8B9BB4]">Payment</span>
+        </div>
+        <div class="h-0.5 flex-1 bg-[#2D3A4F] mx-2"></div>
+        <div class="flex items-center gap-2" id="wz-step-3-ind">
+          <div class="w-7 h-7 rounded-full bg-[#1A2333] text-[#8B9BB4] flex items-center justify-center font-bold text-xs">3</div>
+          <span class="text-xs text-[#8B9BB4]">Milestones</span>
+        </div>
+        <div class="h-0.5 flex-1 bg-[#2D3A4F] mx-2"></div>
+        <div class="flex items-center gap-2" id="wz-step-4-ind">
+          <div class="w-7 h-7 rounded-full bg-[#1A2333] text-[#8B9BB4] flex items-center justify-center font-bold text-xs">4</div>
+          <span class="text-xs text-[#8B9BB4]">Deploy</span>
+        </div>
+      </div>
+
+      <!-- Step 1: Counterparties -->
+      <div id="wz-step-1">
+        <h3 class="text-lg font-bold text-white mb-1">Step 1: Agreement & Counterparties</h3>
+        <p class="text-xs text-[#8B9BB4] mb-4">Define agreement title and cryptographic wallet addresses.</p>
+
+        <div class="space-y-3">
+          <div>
+            <label class="text-xs text-[#8B9BB4] block mb-1">Project Agreement Title</label>
+            <input id="wz-title" type="text" value="Cross-Chain DEX Smart Contract Audit" class="w-full px-3 py-2 text-sm bg-[#1A2333] border border-[#2D3A4F] rounded-lg text-white focus:outline-none focus:border-[#38BDF8]">
+          </div>
+          <div>
+            <label class="text-xs text-[#8B9BB4] block mb-1">Buyer (Client) Address</label>
+            <input id="wz-buyer" type="text" value="0x70997970C51812dc3A010C7d01b50e0d17dc79C8" class="mono w-full px-3 py-2 text-sm bg-[#1A2333] border border-[#2D3A4F] rounded-lg text-white focus:outline-none focus:border-[#38BDF8]">
+          </div>
+          <div>
+            <label class="text-xs text-[#8B9BB4] block mb-1">Seller (Service Provider) Address</label>
+            <input id="wz-seller" type="text" value="0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC" class="mono w-full px-3 py-2 text-sm bg-[#1A2333] border border-[#2D3A4F] rounded-lg text-white focus:outline-none focus:border-[#38BDF8]">
+          </div>
+          <div>
+            <label class="text-xs text-[#8B9BB4] block mb-1">Arbitrator (Dispute Judge) Address</label>
+            <input id="wz-arbitrator" type="text" value="0x90F79bf6EB2c4f870365E785982E1f101E93b906" class="mono w-full px-3 py-2 text-sm bg-[#1A2333] border border-[#2D3A4F] rounded-lg text-white focus:outline-none focus:border-[#38BDF8]">
+          </div>
+        </div>
+
+        <div class="flex justify-end mt-6">
+          <button onclick="nextWizardStep(2)" class="px-5 py-2 rounded-lg bg-[#38BDF8] text-[#080B11] font-semibold text-sm hover:opacity-90">Continue to Payment ➔</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Payment Terms -->
+      <div id="wz-step-2" class="hidden">
+        <h3 class="text-lg font-bold text-white mb-1">Step 2: Currency & Deposit Amount</h3>
+        <p class="text-xs text-[#8B9BB4] mb-4">Choose settlement currency (Native ETH or ERC-20 token).</p>
+
+        <div class="space-y-4">
+          <div>
+            <label class="text-xs text-[#8B9BB4] block mb-1">Settlement Asset</label>
+            <select id="wz-token" onchange="toggleTokenAddressInput(this.value)" class="w-full px-3 py-2 text-sm bg-[#1A2333] border border-[#2D3A4F] rounded-lg text-white focus:outline-none focus:border-[#38BDF8]">
+              <option value="ETH">Native ETH (Zero-approval atomic lock)</option>
+              <option value="USDC">USDC (ERC-20 - 0xA0b8...eB48)</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-[#8B9BB4] block mb-1">Total Agreement Amount</label>
+            <input id="wz-total" type="number" step="0.1" value="3.0" class="w-full px-3 py-2 text-sm bg-[#1A2333] border border-[#2D3A4F] rounded-lg text-white focus:outline-none focus:border-[#38BDF8]">
+          </div>
+          <div class="p-3 rounded-lg bg-[#1A2333] border border-[#2D3A4F] text-xs text-[#8B9BB4]">
+            ℹ️ <span class="text-white font-medium">Protocol Fee Notice:</span> A 0.50% fee is deducted from the seller payout only when milestone funds are released. Buyers deposit exactly the agreed contract amount.
+          </div>
+        </div>
+
+        <div class="flex justify-between mt-6">
+          <button onclick="nextWizardStep(1)" class="px-4 py-2 rounded-lg bg-[#1A2333] text-white text-sm">⬅ Back</button>
+          <button onclick="nextWizardStep(3)" class="px-5 py-2 rounded-lg bg-[#38BDF8] text-[#080B11] font-semibold text-sm hover:opacity-90">Continue to Milestones ➔</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Milestones Breakdown -->
+      <div id="wz-step-3" class="hidden">
+        <h3 class="text-lg font-bold text-white mb-1">Step 3: Define Milestones</h3>
+        <p class="text-xs text-[#8B9BB4] mb-4">Milestone tranches must sum to exactly the total amount.</p>
+
+        <div id="wz-milestones-list" class="space-y-3 mb-4">
+          <!-- Rendered dynamically -->
+        </div>
+
+        <button onclick="addWizardMilestone()" class="text-xs text-[#38BDF8] hover:underline flex items-center gap-1 mb-4">
+          + Add another milestone
+        </button>
+
+        <div id="wz-milestone-sum-alert" class="p-2.5 rounded-lg text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          Sum: 3.0 ETH / Total: 3.0 ETH (100% matched)
+        </div>
+
+        <div class="flex justify-between mt-6">
+          <button onclick="nextWizardStep(2)" class="px-4 py-2 rounded-lg bg-[#1A2333] text-white text-sm">⬅ Back</button>
+          <button onclick="nextWizardStep(4)" class="px-5 py-2 rounded-lg bg-[#38BDF8] text-[#080B11] font-semibold text-sm hover:opacity-90">Review Terms ➔</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Review, IPFS Pinning & On-Chain Init -->
+      <div id="wz-step-4" class="hidden">
+        <h3 class="text-lg font-bold text-white mb-1">Step 4: Review & Initialize On-Chain</h3>
+        <p class="text-xs text-[#8B9BB4] mb-4">Pin formal agreement specs to IPFS and trigger smart contract deposit.</p>
+
+        <div class="nested p-4 rounded-xl border border-[#2D3A4F] space-y-2 text-xs mb-4">
+          <div class="flex justify-between"><span class="text-[#8B9BB4]">Title:</span><span id="rv-title" class="font-semibold text-white"></span></div>
+          <div class="flex justify-between"><span class="text-[#8B9BB4]">Total Deposit:</span><span id="rv-amount" class="font-bold text-[#38BDF8]"></span></div>
+          <div class="flex justify-between"><span class="text-[#8B9BB4]">Buyer:</span><span id="rv-buyer" class="mono text-white"></span></div>
+          <div class="flex justify-between"><span class="text-[#8B9BB4]">Seller:</span><span id="rv-seller" class="mono text-white"></span></div>
+          <div class="flex justify-between"><span class="text-[#8B9BB4]">Arbitrator:</span><span id="rv-arbitrator" class="mono text-white"></span></div>
+          <div class="flex justify-between"><span class="text-[#8B9BB4]">IPFS CID (v1):</span><span id="rv-ipfs" class="mono text-emerald-400">bafybeigdyrzt5sfp7udm7hu76uh7y...</span></div>
+        </div>
+
+        <div class="flex justify-between mt-6">
+          <button onclick="nextWizardStep(3)" class="px-4 py-2 rounded-lg bg-[#1A2333] text-white text-sm">⬅ Back</button>
+          <button onclick="finalizeEscrowCreation()" class="px-5 py-2 rounded-lg bg-[#38BDF8] text-[#080B11] font-bold text-sm shadow-lg hover:opacity-90 flex items-center gap-2">
+            <span>🚀 Sign & Create On-Chain Escrow</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 3: ADMIN & ARBITRATION ROOM -->
+  <section id="view-admin" class="hidden space-y-6">
+    <!-- Section 1: Active Dispute Courtroom -->
+    <div class="card rounded-2xl p-6 border-rose-500/40 shadow-xl">
+      <div class="flex items-center justify-between pb-4 mb-4 border-b border-[#2D3A4F]">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">⚖️</span>
+          <div>
+            <h2 class="text-lg font-bold text-white">Arbitration Courtroom – Active Dispute</h2>
+            <p class="text-xs text-[#8B9BB4]">Escrow #ESC-002: Cross-Chain NFT Bridge Implementation</p>
+          </div>
+        </div>
+        <span class="badge-disputed text-xs px-3 py-1 rounded-full font-semibold">DISPUTE ACTIVE</span>
+      </div>
+
+      <!-- Dispute Context & Evidence -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div class="nested p-4 rounded-xl border border-[#2D3A4F]">
+          <div class="text-xs text-[#8B9BB4] mb-1">Buyer's Claim & Evidence</div>
+          <p class="text-xs text-slate-200">"Seller failed to provide formal verification report as specified in Milestone 2 agreement clause."</p>
+          <div class="mt-2 text-xs mono text-[#38BDF8]">IPFS Evidence: QmBuyerProofClause992</div>
+        </div>
+        <div class="nested p-4 rounded-xl border border-[#2D3A4F]">
+          <div class="text-xs text-[#8B9BB4] mb-1">Seller's Rebuttal & Deliverable</div>
+          <p class="text-xs text-slate-200">"Unit test coverage was $>95\%$ as agreed. Formal verification was an optional bonus."</p>
+          <div class="mt-2 text-xs mono text-[#38BDF8]">IPFS Evidence: QmSellerTestReport881</div>
+        </div>
+      </div>
+
+      <!-- Live Split Slider (Enforces 10,000 Basis Points) -->
+      <div class="bg-[#1A2333] p-5 rounded-xl border border-[#2D3A4F] mb-6">
+        <div class="flex justify-between items-center mb-2">
+          <span class="text-sm font-semibold text-white">Award Split Ratio</span>
+          <span class="text-xs mono text-emerald-400">Locked Disputed Balance: 8,500 USDC</span>
+        </div>
+
+        <input type="range" id="disputeSlider" min="0" max="100" value="65" oninput="updateArbitrationSplit(this.value)" class="w-full accent-[#38BDF8] cursor-pointer mb-4">
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="p-3 rounded-lg bg-[#0D131F] border border-blue-500/30">
+            <div class="text-xs text-[#8B9BB4]">Buyer Refund Portion</div>
+            <div id="buyerSplitPct" class="text-lg font-bold text-blue-400">35% (3,500 bps)</div>
+            <div id="buyerSplitAmt" class="text-sm font-mono text-white mt-1">2,975.00 USDC</div>
+            <div class="text-[11px] text-zinc-400">Direct refund without protocol fee</div>
+          </div>
+          <div class="p-3 rounded-lg bg-[#0D131F] border border-emerald-500/30">
+            <div class="text-xs text-[#8B9BB4]">Seller Award Portion</div>
+            <div id="sellerSplitPct" class="text-lg font-bold text-emerald-400">65% (6,500 bps)</div>
+            <div id="sellerSplitAmt" class="text-sm font-mono text-white mt-1">5,525.00 USDC</div>
+            <div id="sellerFeeDeduction" class="text-[11px] text-amber-400">Fee deducted: 27.62 USDC (0.50%)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Execute Ruling Action -->
+      <div class="flex items-center justify-between">
+        <div class="text-xs text-[#8B9BB4]">
+          Execution requires Arbitrator signature (<span class="mono text-white">0x90F7...b906</span>). Irreversible on-chain settlement.
+        </div>
+        <button onclick="executeArbitrationRuling()" class="px-5 py-2.5 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm shadow-lg flex items-center gap-2">
+          <span>⚖️ Execute Arbitrator Ruling</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Section 2: Protocol Owner Parameters -->
+    <div class="card rounded-2xl p-6">
+      <div class="flex items-center justify-between pb-4 mb-4 border-b border-[#2D3A4F]">
+        <div>
+          <h2 class="text-lg font-bold text-white">Protocol Governance & Fee Controller</h2>
+          <p class="text-xs text-[#8B9BB4]">OpenZeppelin UUPS Upgradeable Proxy Configuration</p>
+        </div>
+        <span class="text-xs px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold">OWNER ONLY</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div class="nested p-4 rounded-xl border border-[#2D3A4F]">
+          <label class="text-xs text-[#8B9BB4] block mb-1">Platform Fee (Basis Points)</label>
+          <div class="flex items-center gap-2">
+            <input id="cfg-feeBps" type="number" value="50" class="w-24 px-3 py-1.5 text-sm bg-[#0D131F] border border-[#2D3A4F] rounded-lg text-white">
+            <span class="text-xs text-[#8B9BB4]">= 0.50%</span>
+            <button onclick="updateFeeBps()" class="text-xs px-3 py-1.5 rounded bg-[#38BDF8] text-[#080B11] font-semibold">Save</button>
+          </div>
+        </div>
+
+        <div class="nested p-4 rounded-xl border border-[#2D3A4F]">
+          <label class="text-xs text-[#8B9BB4] block mb-1">Platform Treasury Address</label>
+          <div class="text-xs mono text-white truncate">0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266</div>
+          <div class="text-[11px] text-emerald-400 mt-1">Multi-Sig Safe Connected</div>
+        </div>
+
+        <div class="nested p-4 rounded-xl border border-[#2D3A4F]">
+          <label class="text-xs text-[#8B9BB4] block mb-1">Emergency Protocol Pause</label>
+          <div class="flex items-center gap-3 mt-1">
+            <button id="pauseBtn" onclick="togglePauseState()" class="text-xs px-3 py-1.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/40 font-semibold">
+              ⏸️ Pause Contract
+            </button>
+            <span id="pauseStatus" class="text-xs text-emerald-400">Status: Running</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 4: EVENT STREAM -->
+  <section id="view-events" class="hidden">
+    <div class="card rounded-2xl p-6">
+      <div class="flex items-center justify-between pb-4 mb-4 border-b border-[#2D3A4F]">
+        <div>
+          <h2 class="text-lg font-bold text-white">Blockchain Event Stream & Audit Log</h2>
+          <p class="text-xs text-[#8B9BB4]">Indexed events confirmed with 12-block reorg depth buffer</p>
+        </div>
+        <button onclick="clearEventLogs()" class="text-xs text-[#8B9BB4] hover:text-white">Clear Log</button>
+      </div>
+
+      <div id="eventStreamList" class="space-y-2 mono text-xs">
+        <!-- Injected by JavaScript -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Deliverable Submission Modal -->
+  <div id="deliverableModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="card rounded-2xl p-6 max-w-md w-full border-[#38BDF8]">
+      <h3 class="text-lg font-bold text-white mb-2">Submit Milestone Deliverable</h3>
+      <p class="text-xs text-[#8B9BB4] mb-4">Attach deliverable verification evidence to be pinned to IPFS.</p>
+      
+      <div class="space-y-3 mb-4">
+        <div>
+          <label class="text-xs text-[#8B9BB4] block mb-1">Deliverable Title</label>
+          <input id="deliv-title" type="text" value="GitHub Repository Commit & Test Reports" class="w-full px-3 py-2 text-sm bg-[#1A2333] border border-[#2D3A4F] rounded-lg text-white">
+        </div>
+        <div>
+          <label class="text-xs text-[#8B9BB4] block mb-1">Evidence URL / GitHub PR Link</label>
+          <input id="deliv-url" type="text" value="https://github.com/project/pull/42" class="w-full px-3 py-2 text-sm bg-[#1A2333] border border-[#2D3A4F] rounded-lg text-white">
+        </div>
+        <div>
+          <label class="text-xs text-[#8B9BB4] block mb-1">Deliverable Notes</label>
+          <textarea id="deliv-notes" rows="2" class="w-full px-3 py-2 text-sm bg-[#1A2333] border border-[#2D3A4F] rounded-lg text-white">All unit tests passing (100% coverage). Ready for client inspection.</textarea>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2">
+        <button onclick="closeDeliverableModal()" class="px-4 py-2 rounded-lg bg-[#1A2333] text-white text-xs">Cancel</button>
+        <button onclick="confirmDeliverableSubmission()" class="px-4 py-2 rounded-lg bg-[#38BDF8] text-[#080B11] font-bold text-xs">Upload to IPFS & Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State Store
+    const state = {
+      currentPersona: "buyer",
+      currentNetwork: 137,
+      activeFilter: "all",
+      wizardStep: 1,
+      escrows: [
+        {
+          id: "ESC-001",
+          title: "Full Stack DeFi Protocol Security Audit",
+          buyer: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          seller: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          arbitrator: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+          totalAmount: "4.00",
+          tokenSymbol: "ETH",
+          releasedAmount: "1.00",
+          status: "IN_PROGRESS",
+          milestones: [
+            { id: 1, title: "Threat Modeling & Arch Review", amount: "1.00", status: "APPROVED", deliverableCid: "QmArchDoc771" },
+            { id: 2, title: "Manual Fuzzing & Static Analysis", amount: "2.00", status: "SUBMITTED", deliverableCid: "QmFuzzReport993" },
+            { id: 3, title: "Final Mitigation Verification", amount: "1.00", status: "NOT_STARTED", deliverableCid: null }
+          ]
+        },
+        {
+          id: "ESC-002",
+          title: "Cross-Chain NFT Bridge Implementation",
+          buyer: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          seller: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          arbitrator: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+          totalAmount: "8,500.00",
+          tokenSymbol: "USDC",
+          releasedAmount: "0.00",
+          status: "DISPUTED",
+          milestones: [
+            { id: 1, title: "Bridge Relayer Architecture", amount: "3,500.00", status: "DISPUTED", deliverableCid: "QmRelayerSpec" },
+            { id: 2, title: "Smart Contract Deployment", amount: "5,000.00", status: "NOT_STARTED", deliverableCid: null }
+          ]
+        },
+        {
+          id: "ESC-003",
+          title: "Zero-Knowledge Rollup Research Specifications",
+          buyer: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          seller: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          arbitrator: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+          totalAmount: "2.50",
+          tokenSymbol: "ETH",
+          releasedAmount: "2.50",
+          status: "COMPLETED",
+          milestones: [
+            { id: 1, title: "Research Whitepaper", amount: "2.50", status: "APPROVED", deliverableCid: "QmZKResearchFinal" }
+          ]
+        }
+      ],
+      events: [
+        { time: "Just now", type: "DisputeRaised", text: "Dispute filed for Escrow #ESC-002 by Buyer. Funds locked in arbitration.", tx: "0x91a...c4b2" },
+        { time: "2 mins ago", type: "MilestoneSubmitted", text: "Seller submitted deliverable for #ESC-001 (Milestone 2). Deliverable CID: QmFuzzReport993", tx: "0x4b7...91e3" },
+        { time: "5 mins ago", type: "MilestoneApproved", text: "Buyer approved Milestone 1 on #ESC-001. Released 0.995 ETH to Seller (Fee: 0.005 ETH)", tx: "0x2e8...7a11" },
+        { time: "12 mins ago", type: "EscrowCreated", text: "Escrow #ESC-001 created and funded with 4.00 ETH on Polygon PoS", tx: "0x8f1...112d" }
+      ],
+      wizardMilestones: [
+        { id: 1, title: "Architecture & Design", amount: "1.0", deadline: 7 },
+        { id: 2, title: "Core Implementation", amount: "2.0", deadline: 14 }
+      ],
+      targetDeliverableEscrowId: null,
+      targetDeliverableMilestoneIdx: null
+    };
+
+    function showToast(msg, type = "success") {
+      const el = document.getElementById("toast");
+      el.className = `fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-2xl border text-sm font-semibold transition-all duration-300 ${
+        type === "success" ? "bg-emerald-950/90 border-emerald-500 text-emerald-300" :
+        type === "warning" ? "bg-amber-950/90 border-amber-500 text-amber-300" :
+        "bg-rose-950/90 border-rose-500 text-rose-300"
+      }`;
+      el.innerHTML = `<span>${msg}</span>`;
+      el.classList.remove("hidden");
+      setTimeout(() => el.classList.add("hidden"), 4000);
+    }
+
+    function truncate(addr) {
+      if (!addr || addr.length < 10) return addr;
+      return addr.slice(0, 6) + "..." + addr.slice(-4);
+    }
+
+    function switchPersona(p) {
+      state.currentPersona = p;
+      showToast(`Switched active persona to ${p.toUpperCase()}`);
+      renderDashboard();
+    }
+
+    function switchNetwork(chainId) {
+      state.currentNetwork = chainId;
+      showToast(`Switched network to Chain ID #${chainId}`);
+      addEvent("ChainSwitched", `User switched active network to Chain ID #${chainId}`, "0x" + Math.random().toString(16).slice(2, 10));
+    }
+
+    function switchTab(tab) {
+      ["dashboard", "wizard", "admin", "events"].forEach(t => {
+        document.getElementById(`view-${t}`).classList.add("hidden");
+        document.getElementById(`tab-${t}`).className = "px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-[#8B9BB4] hover:text-white";
+      });
+      document.getElementById(`view-${tab}`).classList.remove("hidden");
+      document.getElementById(`tab-${tab}`).className = "px-4 py-2.5 text-sm font-semibold border-b-2 border-[#38BDF8] text-[#38BDF8]";
+      if (tab === "wizard") renderWizardMilestones();
+    }
+
+    function setFilter(f) {
+      state.activeFilter = f;
+      ["all", "buyer", "seller", "arbitrator"].forEach(btn => {
+        const el = document.getElementById(`filter-${btn}`);
+        if (btn === f) {
+          el.className = "px-2.5 py-1 rounded bg-[#38BDF8] text-[#080B11] font-semibold";
+        } else {
+          el.className = "px-2.5 py-1 rounded text-[#8B9BB4]";
+        }
+      });
+      renderDashboard();
+    }
+
+    function addEvent(type, text, tx = "0x" + Math.random().toString(16).slice(2, 10)) {
+      state.events.unshift({ time: "Just now", type, text, tx });
+      renderEvents();
+    }
+
+    // Dashboard Renderer
+    function renderDashboard() {
+      const grid = document.getElementById("escrowGrid");
+      const currentAddr = 
+        state.currentPersona === "buyer" ? "0x70997970C51812dc3A010C7d01b50e0d17dc79C8".toLowerCase() :
+        state.currentPersona === "seller" ? "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".toLowerCase() :
+        state.currentPersona === "arbitrator" ? "0x90F79bf6EB2c4f870365E785982E1f101E93b906".toLowerCase() :
+        "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266".toLowerCase();
+
+      const filtered = state.escrows.filter(e => {
+        if (state.activeFilter === "buyer") return e.buyer.toLowerCase() === currentAddr;
+        if (state.activeFilter === "seller") return e.seller.toLowerCase() === currentAddr;
+        if (state.activeFilter === "arbitrator") return e.arbitrator.toLowerCase() === currentAddr;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div class="col-span-2 p-8 text-center text-[#8B9BB4] card rounded-xl">No agreements found for this view filter.</div>`;
+        return;
+      }
+
+      grid.innerHTML = filtered.map(e => {
+        const approvedCount = e.milestones.filter(m => m.status === "APPROVED").length;
+        const progressPct = Math.round((approvedCount / e.milestones.length) * 100);
+
+        let badgeClass = "badge-funded";
+        if (e.status === "IN_PROGRESS") badgeClass = "badge-inprogress";
+        if (e.status === "DISPUTED") badgeClass = "badge-disputed";
+        if (e.status === "COMPLETED") badgeClass = "badge-completed";
+        if (e.status === "RESOLVED") badgeClass = "badge-resolved";
+        if (e.status === "CREATED") badgeClass = "badge-created";
+
+        const isBuyer = state.currentPersona === "buyer" || e.buyer.toLowerCase() === currentAddr;
+        const isSeller = state.currentPersona === "seller" || e.seller.toLowerCase() === currentAddr;
+        const isArbitrator = state.currentPersona === "arbitrator" || e.arbitrator.toLowerCase() === currentAddr;
+
+        // Action Buttons
+        let actionButtonsHtml = "";
+        if (e.status === "IN_PROGRESS" || e.status === "FUNDED") {
+          if (isSeller) {
+            actionButtonsHtml += `<button onclick="openDeliverableModal('${e.id}', 1)" class="px-3 py-1.5 rounded-lg bg-[#38BDF8] text-[#080B11] text-xs font-semibold hover:opacity-90">📤 Submit Deliverable</button>`;
+          }
+          if (isBuyer) {
+            actionButtonsHtml += `<button onclick="approveMilestone('${e.id}', 1)" class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold">✔ Approve & Release</button>`;
+            actionButtonsHtml += `<button onclick="raiseDispute('${e.id}')" class="px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40 text-xs font-semibold">⚠ Raise Dispute</button>`;
+          }
+        } else if (e.status === "DISPUTED" && isArbitrator) {
+          actionButtonsHtml += `<button onclick="switchTab('admin')" class="px-3 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold">⚖️ Rule on Dispute</button>`;
+        } else if (e.status === "CREATED" && isBuyer) {
+          actionButtonsHtml += `<button onclick="depositFunds('${e.id}')" class="px-3 py-1.5 rounded-lg bg-[#38BDF8] text-[#080B11] text-xs font-semibold">💰 Deposit Funds</button>`;
+        }
+
+        // Stepper items
+        const milestonesListHtml = e.milestones.map((m, idx) => {
+          const color = m.status === "APPROVED" ? "#10B981" : m.status === "SUBMITTED" ? "#60A5FA" : m.status === "DISPUTED" ? "#FB7185" : "#64748B";
+          const icon = m.status === "APPROVED" ? "✔" : m.status === "SUBMITTED" ? "⏳" : m.status === "DISPUTED" ? "⚠" : "○";
+          return `
+            <div class="flex items-center justify-between text-xs py-1.5 border-b border-[#2D3A4F]/50">
+              <div class="flex items-center gap-2">
+                <span style="color: ${color}; font-weight: bold;">${icon}</span>
+                <span class="text-white">${m.title}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-[#8B9BB4]">${m.amount} ${e.tokenSymbol}</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-medium" style="color:${color}; background:${color}22;">${m.status}</span>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        return `
+          <div class="card rounded-2xl p-5 flex flex-col justify-between shadow-lg">
+            <div>
+              <div class="flex justify-between items-start gap-2 mb-3">
+                <div>
+                  <div class="text-[11px] mono text-[#8B9BB4] mb-0.5">#${e.id}</div>
+                  <h3 class="text-base font-bold text-white">${e.title}</h3>
+                </div>
+                <span class="${badgeClass} text-xs px-2.5 py-1 rounded-full font-bold whitespace-nowrap">${e.status}</span>
+              </div>
+
+              <!-- Metrics -->
+              <div class="grid grid-cols-2 gap-2 p-3 rounded-xl bg-[#1A2333] mb-3">
+                <div>
+                  <div class="text-[11px] text-[#8B9BB4]">Total Locked</div>
+                  <div class="text-sm font-bold text-[#38BDF8]">${e.totalAmount} ${e.tokenSymbol}</div>
+                </div>
+                <div>
+                  <div class="text-[11px] text-[#8B9BB4]">Released</div>
+                  <div class="text-sm font-bold text-emerald-400">${e.releasedAmount} ${e.tokenSymbol}</div>
+                </div>
+              </div>
+
+              <!-- Milestones Stepper -->
+              <div class="mb-4">
+                <div class="flex justify-between text-xs text-[#8B9BB4] mb-1.5">
+                  <span>Milestone Progress</span>
+                  <span class="font-mono text-white">${approvedCount}/${e.milestones.length} (${progressPct}%)</span>
+                </div>
+                <div class="w-full bg-[#1A2333] h-2 rounded-full overflow-hidden mb-3">
+                  <div class="bg-[#38BDF8] h-full transition-all duration-300" style="width: ${progressPct}%;"></div>
+                </div>
+                <div class="space-y-0.5 bg-[#0D131F]/50 p-2 rounded-lg border border-[#2D3A4F]/60">
+                  ${milestonesListHtml}
+                </div>
+              </div>
+            </div>
+
+            <!-- Card Footer -->
+            <div class="pt-3 border-t border-[#2D3A4F] flex flex-wrap items-center justify-between gap-2">
+              <div class="text-[11px] text-[#8B9BB4] mono">
+                Buyer: <span class="text-white">${truncate(e.buyer)}</span> • Seller: <span class="text-white">${truncate(e.seller)}</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                ${actionButtonsHtml}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // Wizard Controls
+    function renderWizardMilestones() {
+      const list = document.getElementById("wz-milestones-list");
+      list.innerHTML = state.wizardMilestones.map((m, idx) => `
+        <div class="flex items-center gap-2 bg-[#1A2333] p-2.5 rounded-lg border border-[#2D3A4F]">
+          <input type="text" value="${m.title}" onchange="state.wizardMilestones[${idx}].title = this.value" placeholder="Milestone description" class="text-xs bg-[#0D131F] border border-[#2D3A4F] rounded px-2.5 py-1.5 flex-1 text-white">
+          <input type="number" step="0.1" value="${m.amount}" onchange="state.wizardMilestones[${idx}].amount = this.value; checkMilestoneSum();" placeholder="Amount" class="text-xs bg-[#0D131F] border border-[#2D3A4F] rounded px-2.5 py-1.5 w-20 text-white">
+          <button onclick="removeWizardMilestone(${idx})" class="text-rose-400 hover:text-rose-300 text-sm px-1.5">✕</button>
+        </div>
+      `).join("");
+      checkMilestoneSum();
+    }
+
+    function addWizardMilestone() {
+      state.wizardMilestones.push({
+        id: state.wizardMilestones.length + 1,
+        title: `Milestone ${state.wizardMilestones.length + 1}`,
+        amount: "0.5",
+        deadline: 14
+      });
+      renderWizardMilestones();
+    }
+
+    function removeWizardMilestone(idx) {
+      if (state.wizardMilestones.length <= 1) return;
+      state.wizardMilestones.splice(idx, 1);
+      renderWizardMilestones();
+    }
+
+    function checkMilestoneSum() {
+      const sum = state.wizardMilestones.reduce((acc, m) => acc + (parseFloat(m.amount) || 0), 0);
+      const total = parseFloat(document.getElementById("wz-total").value) || 0;
+      const alert = document.getElementById("wz-milestone-sum-alert");
+      const matched = Math.abs(sum - total) < 0.001;
+
+      if (matched) {
+        alert.className = "p-2.5 rounded-lg text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+        alert.innerHTML = `✔ Sum: ${sum} / Total: ${total} (100% matched)`;
+      } else {
+        alert.className = "p-2.5 rounded-lg text-xs font-mono bg-rose-500/10 text-rose-400 border border-rose-500/20";
+        alert.innerHTML = `⚠ Sum: ${sum} does not match total amount ${total}!`;
+      }
+    }
+
+    function nextWizardStep(step) {
+      document.getElementById(`wz-step-${state.wizardStep}`).classList.add("hidden");
+      document.getElementById(`wz-step-${step}`).classList.remove("hidden");
+      state.wizardStep = step;
+
+      // Update indicators
+      for (let i = 1; i <= 4; i++) {
+        const ind = document.getElementById(`wz-step-${i}-ind`);
+        const num = ind.querySelector("div");
+        const lbl = ind.querySelector("span");
+        if (i === step) {
+          num.className = "w-7 h-7 rounded-full bg-[#38BDF8] text-[#080B11] flex items-center justify-center font-bold text-xs";
+          lbl.className = "text-xs font-semibold text-[#38BDF8]";
+        } else if (i < step) {
+          num.className = "w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xs";
+          num.innerHTML = "✔";
+          lbl.className = "text-xs text-emerald-400";
+        } else {
+          num.className = "w-7 h-7 rounded-full bg-[#1A2333] text-[#8B9BB4] flex items-center justify-center font-bold text-xs";
+          lbl.className = "text-xs text-[#8B9BB4]";
+        }
+      }
+
+      if (step === 4) {
+        document.getElementById("rv-title").innerText = document.getElementById("wz-title").value;
+        document.getElementById("rv-amount").innerText = `${document.getElementById("wz-total").value} ${document.getElementById("wz-token").value}`;
+        document.getElementById("rv-buyer").innerText = truncate(document.getElementById("wz-buyer").value);
+        document.getElementById("rv-seller").innerText = truncate(document.getElementById("wz-seller").value);
+        document.getElementById("rv-arbitrator").innerText = truncate(document.getElementById("wz-arbitrator").value);
+      }
+    }
+
+    function finalizeEscrowCreation() {
+      const title = document.getElementById("wz-title").value;
+      const totalAmount = document.getElementById("wz-total").value;
+      const token = document.getElementById("wz-token").value;
+      const buyer = document.getElementById("wz-buyer").value;
+      const seller = document.getElementById("wz-seller").value;
+      const arbitrator = document.getElementById("wz-arbitrator").value;
+
+      const newId = `ESC-00${state.escrows.length + 1}`;
+      const newEscrow = {
+        id: newId,
+        title,
+        buyer,
+        seller,
+        arbitrator,
+        totalAmount,
+        tokenSymbol: token,
+        releasedAmount: "0.00",
+        status: "FUNDED",
+        milestones: state.wizardMilestones.map((m, idx) => ({
+          id: idx + 1,
+          title: m.title,
+          amount: m.amount,
+          status: "NOT_STARTED",
+          deliverableCid: null
+        }))
+      };
+
+      state.escrows.unshift(newEscrow);
+      addEvent("EscrowCreated", `Created and funded ${newId} with ${totalAmount} ${token}`, "0x" + Math.random().toString(16).slice(2, 10));
+      showToast(`Escrow ${newId} successfully deployed & funded on-chain!`);
+      switchTab("dashboard");
+      renderDashboard();
+    }
+
+    // Workflow Actions
+    function approveMilestone(escrowId, milestoneIdx) {
+      const e = state.escrows.find(x => x.id === escrowId);
+      if (!e) return;
+      const m = e.milestones[milestoneIdx];
+      if (!m) return;
+
+      m.status = "APPROVED";
+      const amt = parseFloat(m.amount);
+      e.releasedAmount = (parseFloat(e.releasedAmount) + amt).toFixed(2);
+
+      const fee = (amt * 0.005).toFixed(4);
+      const net = (amt - fee).toFixed(4);
+
+      if (e.milestones.every(x => x.status === "APPROVED")) {
+        e.status = "COMPLETED";
+      }
+
+      addEvent("MilestoneApproved", `Milestone #${m.id} approved for ${e.id}. Released ${net} ${e.tokenSymbol} to Seller (Fee: ${fee})`);
+      showToast(`Milestone approved! ${net} ${e.tokenSymbol} sent to Seller.`);
+      renderDashboard();
+    }
+
+    function raiseDispute(escrowId) {
+      const e = state.escrows.find(x => x.id === escrowId);
+      if (!e) return;
+      e.status = "DISPUTED";
+      e.milestones.forEach(m => {
+        if (m.status === "SUBMITTED" || m.status === "NOT_STARTED") m.status = "DISPUTED";
+      });
+      addEvent("DisputeRaised", `Dispute raised on ${escrowId}. Locked in arbitration courtroom.`);
+      showToast(`Dispute raised on ${escrowId}. Escrow locked in Courtroom!`, "danger");
+      renderDashboard();
+    }
+
+    function openDeliverableModal(escrowId, milestoneIdx) {
+      state.targetDeliverableEscrowId = escrowId;
+      state.targetDeliverableMilestoneIdx = milestoneIdx;
+      document.getElementById("deliverableModal").classList.remove("hidden");
+    }
+
+    function closeDeliverableModal() {
+      document.getElementById("deliverableModal").classList.add("hidden");
+    }
+
+    function confirmDeliverableSubmission() {
+      const e = state.escrows.find(x => x.id === state.targetDeliverableEscrowId);
+      if (e && e.milestones[state.targetDeliverableMilestoneIdx]) {
+        const m = e.milestones[state.targetDeliverableMilestoneIdx];
+        m.status = "SUBMITTED";
+        m.deliverableCid = "Qm" + Math.random().toString(36).slice(2, 12);
+        addEvent("MilestoneSubmitted", `Deliverable submitted for ${e.id} (${m.title}). IPFS: ${m.deliverableCid}`);
+        showToast("Deliverable pinned to IPFS & submitted to Client!");
+      }
+      closeDeliverableModal();
+      renderDashboard();
+    }
+
+    // Arbitration Slider Update
+    function updateArbitrationSplit(val) {
+      const sellerPct = parseInt(val);
+      const buyerPct = 100 - sellerPct;
+      const total = 8500.0;
+
+      const buyerAmt = (total * buyerPct) / 100;
+      const sellerRawAmt = (total * sellerPct) / 100;
+      const fee = (sellerRawAmt * 0.005);
+      const sellerNet = sellerRawAmt - fee;
+
+      document.getElementById("buyerSplitPct").innerText = `${buyerPct}% (${buyerPct * 100} bps)`;
+      document.getElementById("buyerSplitAmt").innerText = `${buyerAmt.toFixed(2)} USDC`;
+
+      document.getElementById("sellerSplitPct").innerText = `${sellerPct}% (${sellerPct * 100} bps)`;
+      document.getElementById("sellerSplitAmt").innerText = `${sellerNet.toFixed(2)} USDC`;
+      document.getElementById("sellerFeeDeduction").innerText = `Fee deducted: ${fee.toFixed(2)} USDC (0.50%)`;
+    }
+
+    function executeArbitrationRuling() {
+      const e = state.escrows.find(x => x.id === "ESC-002");
+      if (e) {
+        e.status = "RESOLVED";
+        e.milestones.forEach(m => m.status = "APPROVED");
+      }
+      addEvent("DisputeResolved", "Arbitrator Dave resolved dispute on #ESC-002 with 65/35 split. Funds disbursed.");
+      showToast("Arbitrator ruling executed! Funds disbursed to Buyer & Seller.");
+      renderDashboard();
+      switchTab("dashboard");
+    }
+
+    function togglePauseState() {
+      const btn = document.getElementById("pauseBtn");
+      const status = document.getElementById("pauseStatus");
+      if (status.innerText.includes("Running")) {
+        status.innerText = "Status: PAUSED";
+        status.className = "text-xs text-rose-400 font-bold";
+        btn.innerText = "▶️ Unpause Contract";
+        addEvent("ProtocolPaused", "Protocol emergency pause activated by Owner.");
+        showToast("BlockEscrow protocol paused by Owner!", "warning");
+      } else {
+        status.innerText = "Status: Running";
+        status.className = "text-xs text-emerald-400";
+        btn.innerText = "⏸️ Pause Contract";
+        addEvent("ProtocolUnpaused", "Protocol resumed normal execution.");
+        showToast("Protocol unpaused and fully active.");
+      }
+    }
+
+    function updateFeeBps() {
+      const val = document.getElementById("cfg-feeBps").value;
+      addEvent("FeeUpdated", `Owner updated platform fee to ${val} basis points (${(val/100).toFixed(2)}%)`);
+      showToast(`Platform fee updated to ${val} basis points!`);
+    }
+
+    function renderEvents() {
+      const el = document.getElementById("eventStreamList");
+      el.innerHTML = state.events.map(ev => `
+        <div class="flex items-start justify-between p-2.5 rounded-lg bg-[#1A2333]/80 border border-[#2D3A4F]/60">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-[#38BDF8] font-bold">[${ev.type}]</span>
+              <span class="text-white">${ev.text}</span>
+            </div>
+            <div class="text-[11px] text-[#8B9BB4] mt-0.5">Tx: <span class="text-emerald-400">${ev.tx}</span></div>
+          </div>
+          <span class="text-[10px] text-[#8B9BB4] whitespace-nowrap">${ev.time}</span>
+        </div>
+      `).join("");
+    }
+
+    function clearEventLogs() {
+      state.events = [];
+      renderEvents();
+    }
+
+    // Init
+    renderDashboard();
+    renderEvents();
+  </script>
+</body>
+</html>
