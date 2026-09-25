@@ -14,8 +14,11 @@
     "test:ipfs": "npm test --prefix packages/ipfs-service",
     "test:backend": "npm test --prefix backend",
     "test:frontend": "npm test --prefix frontend",
+    "dev": "node frontend/server.js",
+    "app": "node frontend/server.js",
     "start:backend": "npm start --prefix backend",
     "start:frontend": "node frontend/server.js",
+    "start:all": "node scripts/serve-all.js",
     "build:pages": "node scripts/build-pages.js",
     "deploy:local": "npm run deploy:local --prefix contracts"
   },

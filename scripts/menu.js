@@ -55,7 +55,12 @@ function showMainMenu() {
   console.log(`${ANSI.bold}⚡ SMART CONTRACT OPERATIONS${ANSI.reset}`);
   console.log(`  ${ANSI.yellow}[8]${ANSI.reset} 🔨 Compile Smart Contracts        ${ANSI.dim}(Hardhat solc 0.8.24)${ANSI.reset}`);
   console.log(`  ${ANSI.yellow}[9]${ANSI.reset} 🧪 Run Phase 1 Contract Tests    ${ANSI.dim}(16 Automated Tests)${ANSI.reset}`);
-  console.log(`  ${ANSI.yellow}[d]${ANSI.reset} 🚀 Test Local Deployment Script   ${ANSI.dim}(scripts/deploy.js)${ANSI.reset}`);
+  console.log(`${ANSI.dim}───────────────────────────────────────────────────────────────────────${ANSI.reset}`);
+  console.log(`${ANSI.bold}🌐 APPLICATION & FULL-STACK RUNNERS${ANSI.reset}`);
+  console.log(`  ${ANSI.green}[w]${ANSI.reset} 🚀 Launch Interactive Web3 DApp & Admin  ${ANSI.cyan}(http://localhost:3000)${ANSI.reset}`);
+  console.log(`  ${ANSI.green}[a]${ANSI.reset} ⚡ Start Full-Stack Services              ${ANSI.dim}(Backend 4000 + DApp 3000)${ANSI.reset}`);
+  console.log(`  ${ANSI.green}[t]${ANSI.reset} 🧪 Run All 90 Automated Tests           ${ANSI.dim}(All 6 Phases)${ANSI.reset}`);
+  console.log(`  ${ANSI.green}[p]${ANSI.reset} 📦 Build GitHub Pages Static Dist        ${ANSI.dim}(_site/)${ANSI.reset}`);
   console.log(`${ANSI.dim}───────────────────────────────────────────────────────────────────────${ANSI.reset}`);
   console.log(`  ${ANSI.red}[0]${ANSI.reset} 🚪 Exit`);
   console.log("");
@@ -333,6 +338,53 @@ function handleSelection(choice) {
         execSync("npx hardhat run scripts/deploy.js", { cwd: path.join(ROOT_DIR, "contracts"), stdio: "inherit" });
       } catch (err) {
         console.error(`${ANSI.red}Deployment script failed.${ANSI.reset}`);
+      }
+      waitAndReturn();
+      break;
+    case "w":
+    case "W":
+      console.log(`\n${ANSI.cyan}🚀 Launching Interactive DApp & Admin Console...${ANSI.reset}`);
+      const dAppProcess = spawn("node", [path.join(ROOT_DIR, "frontend", "server.js")], {
+        stdio: "inherit",
+        env: { ...process.env, PORT: "3000" },
+      });
+      const rlW = readline.createInterface({ input: process.stdin, output: process.stdout });
+      rlW.question(`\n${ANSI.yellow}DApp is running on http://localhost:3000. Press [Enter] to stop and return to menu...${ANSI.reset}`, () => {
+        dAppProcess.kill();
+        rlW.close();
+        promptMenu();
+      });
+      break;
+    case "a":
+    case "A":
+      console.log(`\n${ANSI.cyan}⚡ Launching Full-Stack Environment (Backend + DApp)...${ANSI.reset}`);
+      const allProcess = spawn("node", [path.join(ROOT_DIR, "scripts", "serve-all.js")], {
+        stdio: "inherit",
+      });
+      const rlA = readline.createInterface({ input: process.stdin, output: process.stdout });
+      rlA.question(`\n${ANSI.yellow}Services are running. Press [Enter] to stop and return to menu...${ANSI.reset}`, () => {
+        allProcess.kill();
+        rlA.close();
+        promptMenu();
+      });
+      break;
+    case "t":
+    case "T":
+      console.log(`\n${ANSI.cyan}🧪 Executing Full Multi-Phase Test Suite (90 Tests)...${ANSI.reset}`);
+      try {
+        execSync("npm test", { cwd: ROOT_DIR, stdio: "inherit" });
+      } catch (err) {
+        console.error(`${ANSI.red}Tests completed with errors.${ANSI.reset}`);
+      }
+      waitAndReturn();
+      break;
+    case "p":
+    case "P":
+      console.log(`\n${ANSI.cyan}📦 Building Static GitHub Pages Distribution...${ANSI.reset}`);
+      try {
+        execSync("node scripts/build-pages.js", { cwd: ROOT_DIR, stdio: "inherit" });
+      } catch (err) {
+        console.error(`${ANSI.red}Build failed.${ANSI.reset}`);
       }
       waitAndReturn();
       break;
