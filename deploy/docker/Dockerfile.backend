@@ -1,0 +1,51 @@
+# Multi-Stage Dockerfile for BlockEscrow Backend API (OPS-601)
+# Stage 1: Dependencies & Builder
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Install system build dependencies
+RUN apk add --no-cache python3 make g++
+
+# Copy workspace package manifests
+COPY package*.json ./
+COPY backend/package*.json ./backend/
+COPY packages/ipfs-service/package*.json ./packages/ipfs-service/
+
+# Install dependencies
+RUN npm ci --workspace=backend --workspace=packages/ipfs-service --omit=dev
+
+# Copy application source
+COPY backend/ ./backend/
+COPY packages/ipfs-service/ ./packages/ipfs-service/
+
+# Stage 2: Production Minimal Runtime (<150MB)
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+# Create unprivileged application user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 -G nodejs
+
+# Set production environment
+ENV NODE_ENV=production
+ENV PORT=4000
+
+# Copy built dependencies and app source with unprivileged ownership
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/backend ./backend
+COPY --from=builder --chown=nodejs:nodejs /app/packages/ipfs-service ./packages/ipfs-service
+
+# Switch to non-root user
+USER nodejs
+
+# Expose API port
+EXPOSE 4000
+
+# Container Healthcheck
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:4000/health || exit 1
+
+# Start production API server
+CMD ["node", "backend/src/server.js"]

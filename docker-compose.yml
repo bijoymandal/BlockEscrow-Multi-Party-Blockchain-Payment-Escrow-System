@@ -1,0 +1,155 @@
+version: "3.9"
+
+services:
+  # 1. PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: blockescrow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-blockescrow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-blockescrow_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-blockescrow_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blockescrow -d blockescrow_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - blockescrow-net
+
+  # 2. Redis In-Memory Cache & Message Broker
+  redis:
+    image: redis:7-alpine
+    container_name: blockescrow-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-redis_secure_password}"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secure_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - blockescrow-net
+
+  # 3. Local IPFS Kubo Node
+  ipfs:
+    image: ipfs/kubo:v0.28.0
+    container_name: blockescrow-ipfs
+    restart: unless-stopped
+    environment:
+      IPFS_PROFILE: server
+    ports:
+      - "4001:4001" # P2P swarm
+      - "5001:5001" # RPC API
+      - "8080:8080" # Gateway
+    volumes:
+      - ipfs_data:/data/ipfs
+    networks:
+      - blockescrow-net
+
+  # 4. BlockEscrow Backend REST API & Event Ingestion
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.backend
+    container_name: blockescrow-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-blockescrow}:${POSTGRES_PASSWORD:-blockescrow_secure_password}@postgres:5432/${POSTGRES_DB:-blockescrow_db}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_secure_password}
+      IPFS_GATEWAY_URL: http://ipfs:8080/ipfs/
+      JWT_SECRET: ${JWT_SECRET:-super_secret_production_jwt_key_min_32_characters}
+      POLYGON_RPC_URL: ${POLYGON_RPC_URL:-https://polygon-rpc.com}
+      ARBITRUM_RPC_URL: ${ARBITRUM_RPC_URL:-https://arb1.arbitrum.io/rpc}
+      SEPOLIA_RPC_URL: ${SEPOLIA_RPC_URL:-https://rpc.sepolia.org}
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - blockescrow-net
+
+  # 5. Blockchain Event Indexer & BullMQ Background Worker
+  worker:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.worker
+    container_name: blockescrow-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-blockescrow}:${POSTGRES_PASSWORD:-blockescrow_secure_password}@postgres:5432/${POSTGRES_DB:-blockescrow_db}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_secure_password}
+      RPC_CONFIRMATION_DEPTH: 12
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - blockescrow-net
+
+  # 6. Frontend Web3 DApp & Admin Console
+  frontend:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.frontend
+    container_name: blockescrow-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      BACKEND_API_URL: http://backend:4000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - blockescrow-net
+
+  # 7. Prometheus Telemetry & Alerting Engine
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: blockescrow-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+    networks:
+      - blockescrow-net
+
+networks:
+  blockescrow-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  ipfs_data:
+  prometheus_data:

@@ -1,0 +1,37 @@
+# Multi-Stage Dockerfile for BlockEscrow Indexer & Queue Worker (OPS-601)
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+RUN apk add --no-cache python3 make g++
+
+COPY package*.json ./
+COPY backend/package*.json ./backend/
+COPY packages/ipfs-service/package*.json ./packages/ipfs-service/
+
+RUN npm ci --workspace=backend --workspace=packages/ipfs-service --omit=dev
+
+COPY backend/ ./backend/
+COPY packages/ipfs-service/ ./packages/ipfs-service/
+
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 -G nodejs
+
+ENV NODE_ENV=production
+ENV WORKER_TYPE=indexer_and_queue
+
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/backend ./backend
+COPY --from=builder --chown=nodejs:nodejs /app/packages/ipfs-service ./packages/ipfs-service
+
+USER nodejs
+
+# Indexer telemetry healthcheck
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:4001/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))" || exit 0
+
+CMD ["node", "backend/src/services/indexer.service.js"]
