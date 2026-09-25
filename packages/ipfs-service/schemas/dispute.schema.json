@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BlockEscrowDisputeFiling",
+  "type": "object",
+  "required": [
+    "version",
+    "escrowId",
+    "initiator",
+    "category",
+    "statement",
+    "filedAt"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": ["1.0.0"]
+    },
+    "escrowId": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "initiator": {
+      "type": "string",
+      "pattern": "^0x[a-fA-F0-9]{40}$"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "NON_DELIVERY",
+        "DEFECTIVE_WORK",
+        "DEADLINE_BREACH",
+        "SCOPE_DISAGREEMENT",
+        "COMMUNICATION_BREAKDOWN",
+        "OTHER"
+      ]
+    },
+    "statement": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 10000
+    },
+    "claimedRefundAmount": {
+      "type": "string",
+      "pattern": "^[0-9]+(\\.[0-9]+)?$"
+    },
+    "evidenceFiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "cid"],
+        "additionalProperties": false,
+        "properties": {
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "cid": { "type": "string" },
+          "sha256": { "type": "string" }
+        }
+      }
+    },
+    "filedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
