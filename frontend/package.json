@@ -1,0 +1,19 @@
+{
+  "name": "@blockescrow/frontend",
+  "version": "1.0.0",
+  "description": "BlockEscrow Web3 Frontend Application and Component System",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [
+    "nextjs",
+    "web3",
+    "escrow",
+    "viem",
+    "wagmi",
+    "tailwind"
+  ],
+  "author": "BlockEscrow Core Team",
+  "license": "MIT"
+}
