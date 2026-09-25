@@ -1,0 +1,33 @@
+groups:
+  - name: blockescrow-indexer
+    rules:
+      # TC-OPS-02: Indexer High Block Lag Alert
+      - alert: IndexerHighBlockLag
+        expr: blockescrow_indexer_canonical_block - blockescrow_indexer_last_indexed_block > 5
+        for: 30s
+        labels:
+          severity: critical
+          channel: slack-escrow-alerts
+        annotations:
+          summary: "BlockEscrow indexer is lagging behind canonical chain"
+          description: "Indexer is {{ $value }} blocks behind on Polygon Mainnet. Initiating RPC failover."
+
+      # Dispute Alert
+      - alert: HighDisputeVolume
+        expr: blockescrow_disputes_active_gauge > 10
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unusual volume of open disputes detected"
+          description: "Active dispute count has reached {{ $value }}. Arbitrator intervention required."
+
+      # RPC Error Rate Alert
+      - alert: HighRpcFailoverRate
+        expr: rate(blockescrow_rpc_failovers_total[5m]) > 0.2
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Primary RPC failover rate is elevated"
+          description: "Secondary RPC providers handling excess traffic."
