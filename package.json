@@ -15,6 +15,7 @@
     "test:backend": "npm test --prefix backend",
     "test:frontend": "npm test --prefix frontend",
     "start:backend": "npm start --prefix backend",
+    "start:frontend": "node frontend/server.js",
     "deploy:local": "npm run deploy:local --prefix contracts"
   },
   "keywords": [
