@@ -1,0 +1,149 @@
+// This is your Prisma schema file for BlockEscrow Backend
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  BUYER
+  SELLER
+  ARBITRATOR
+  ADMIN
+}
+
+enum EscrowState {
+  DRAFT
+  FUNDED
+  IN_PROGRESS
+  COMPLETED
+  DISPUTED
+  RESOLVED
+  REFUNDED
+  CANCELLED
+}
+
+enum MilestoneState {
+  PENDING
+  SUBMITTED
+  APPROVED
+  DISPUTED
+}
+
+model User {
+  id              String      @id @default(uuid())
+  walletAddress   String      @unique
+  role            Role        @default(BUYER)
+  nonce           String      // Used for SIWE single-use verification
+  username        String?
+  email           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  buyerEscrows    Escrow[]    @relation("BuyerEscrows")
+  sellerEscrows   Escrow[]    @relation("SellerEscrows")
+  arbitrated      Escrow[]    @relation("ArbitratorEscrows")
+
+  @@index([walletAddress])
+}
+
+model Escrow {
+  id                  String       @id @default(uuid())
+  onChainEscrowId     Int?         @unique
+  networkChainId      Int          @default(137) // 137 = Polygon PoS, 42161 = Arbitrum
+  buyerAddress        String
+  sellerAddress       String
+  arbitratorAddress   String
+  tokenAddress        String       // "0x0000000000000000000000000000000000000000" for native ETH/MATIC
+  totalAmount         Decimal      @db.Decimal(36, 18)
+  remainingBalance    Decimal      @db.Decimal(36, 18)
+  status              EscrowState  @default(DRAFT)
+  agreementIpfsHash   String
+  txHash              String?      @unique
+  blockNumber         BigInt?
+  isConfirmed         Boolean      @default(false) // Verified against confirmation depth
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  buyer               User         @relation("BuyerEscrows", fields: [buyerAddress], references: [walletAddress])
+  seller              User         @relation("SellerEscrows", fields: [sellerAddress], references: [walletAddress])
+  arbitrator          User         @relation("ArbitratorEscrows", fields: [arbitratorAddress], references: [walletAddress])
+
+  milestones          Milestone[]
+  disputes            Dispute[]
+  auditLogs           AuditLog[]
+
+  @@index([buyerAddress])
+  @@index([sellerAddress])
+  @@index([arbitratorAddress])
+  @@index([status])
+  @@index([networkChainId, onChainEscrowId])
+}
+
+model Milestone {
+  id                  String          @id @default(uuid())
+  escrowId            String
+  onChainIndex        Int
+  title               String
+  description         String?
+  amount              Decimal         @db.Decimal(36, 18)
+  deadline            DateTime
+  status              MilestoneState  @default(PENDING)
+  deliverableIpfsHash String?
+  txHash              String?
+  submittedAt         DateTime?
+  approvedAt          DateTime?
+
+  escrow              Escrow          @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+
+  @@unique([escrowId, onChainIndex])
+  @@index([escrowId])
+}
+
+model Dispute {
+  id                  String          @id @default(uuid())
+  escrowId            String
+  onChainDisputeId    Int?
+  initiatorAddress    String
+  reasonIpfsHash      String
+  buyerAward          Decimal?        @db.Decimal(36, 18)
+  sellerAward         Decimal?        @db.Decimal(36, 18)
+  feeDeducted         Decimal?        @db.Decimal(36, 18)
+  isResolved          Boolean         @default(false)
+  rulingIpfsHash      String?
+  rulingNotes         String?
+  txHash              String?
+  createdAt           DateTime        @default(now())
+  resolvedAt          DateTime?
+
+  escrow              Escrow          @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+
+  @@index([escrowId])
+  @@index([initiatorAddress])
+}
+
+model EventCursor {
+  chainId             Int             @id
+  lastProcessedBlock  BigInt
+  lastProcessedHash   String
+  updatedAt           DateTime        @updatedAt
+}
+
+model AuditLog {
+  id                  String          @id @default(uuid())
+  escrowId            String
+  action              String
+  actorAddress        String
+  payload             Json
+  timestamp           DateTime        @default(now())
+
+  escrow              Escrow          @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+
+  @@index([escrowId])
+  @@index([actorAddress])
+}
