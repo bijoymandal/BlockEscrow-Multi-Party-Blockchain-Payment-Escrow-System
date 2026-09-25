@@ -2,9 +2,10 @@ name: CI & Protocol Verification
 
 on:
   push:
-    branches: [ "main", "development" ]
+    branches: [ "development" ]
   pull_request:
-    branches: [ "main", "development" ]
+    branches: [ "development" ]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -19,11 +20,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: "npm"
 
       - name: Install Workspace Dependencies
         run: |
-          npm ci || npm install
+          npm install
           npm install --prefix contracts
           npm install --prefix packages/ipfs-service
           npm install --prefix backend
